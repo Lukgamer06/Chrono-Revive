@@ -1,0 +1,7 @@
+requests
+Pillow
+opencv-python
+tqdm
+pyinstaller
+pywin32
+winshell
