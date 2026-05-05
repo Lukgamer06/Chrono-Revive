@@ -19,7 +19,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']
 VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv']
 
-# Rutas para herramientas (ajustar para bundle)
+# Rutas para herramientas (ajustar para bundle y PATH)
 def get_tool_path(tool_name):
     if hasattr(sys, '_MEIPASS'):
         # Ejecutando desde bundle
@@ -27,15 +27,31 @@ def get_tool_path(tool_name):
     else:
         # Ejecutando desde script
         base_dir = os.path.dirname(__file__)
-    
+
     if tool_name == 'realesrgan':
-        return os.path.join(base_dir, 'tools', 'realesrgan-ncnn-vulkan.exe')
+        bundle_path = os.path.join(base_dir, 'tools', 'realesrgan-ncnn-vulkan.exe')
+        if os.path.exists(bundle_path):
+            return bundle_path
+        for name in ('realesrgan-ncnn-vulkan.exe', 'realesrgan-ncnn-vulkan', 'realesrgan'):
+            path = shutil.which(name)
+            if path:
+                return path
+        return None
     elif tool_name == 'ffmpeg':
-        return os.path.join(base_dir, 'tools', 'ffmpeg.exe')
+        bundle_path = os.path.join(base_dir, 'tools', 'ffmpeg.exe')
+        if os.path.exists(bundle_path):
+            return bundle_path
+        return shutil.which('ffmpeg')
     elif tool_name == 'ffprobe':
-        return os.path.join(base_dir, 'tools', 'ffprobe.exe')
+        bundle_path = os.path.join(base_dir, 'tools', 'ffprobe.exe')
+        if os.path.exists(bundle_path):
+            return bundle_path
+        return shutil.which('ffprobe')
     elif tool_name == 'magick':
-        return os.path.join(base_dir, 'tools', 'magick.exe')
+        bundle_path = os.path.join(base_dir, 'tools', 'magick.exe')
+        if os.path.exists(bundle_path):
+            return bundle_path
+        return shutil.which('magick')
     return None
 
 REALESRGAN = get_tool_path('realesrgan')
@@ -267,7 +283,7 @@ class App:
 
 def check_ffmpeg():
     ffmpeg_path = get_tool_path('ffmpeg')
-    if ffmpeg_path and os.path.exists(ffmpeg_path):
+    if ffmpeg_path:
         try:
             result = subprocess.run([ffmpeg_path, '-version'], capture_output=True, text=True)
             return result.returncode == 0
@@ -277,7 +293,7 @@ def check_ffmpeg():
 
 def check_imagemagick():
     magick_path = get_tool_path('magick')
-    if magick_path and os.path.exists(magick_path):
+    if magick_path:
         try:
             result = subprocess.run([magick_path, '-version'], capture_output=True, text=True)
             return result.returncode == 0
@@ -315,11 +331,14 @@ def get_exif_date(path):
     return None
 
 def get_video_date_ffmpeg(path):
+    ffprobe_path = get_tool_path('ffprobe')
+    if not ffprobe_path:
+        return None
     try:
-        cmd = [get_tool_path('ffprobe'), "-v", "quiet", "-print_format", "json", "-show_entries", "format_tags=creation_time", path]
+        cmd = [ffprobe_path, "-v", "quiet", "-print_format", "json", "-show_entries", "format_tags=creation_time", path]
         result = subprocess.run(cmd, capture_output=True, text=True)
         import json
-        data = json.loads(result.stdout)
+        data = json.loads(result.stdout or "{}")
         ts = data.get("format", {}).get("tags", {}).get("creation_time")
         if ts:
             ts = ts.replace("Z", "+00:00")
@@ -352,10 +371,12 @@ def is_thumbnail(path, min_size=500):
     return w < min_size or h < min_size
 
 def enhance_with_retries(input_path, output_path, retries=3):
+    if not REALESRGAN:
+        return False
     for attempt in range(retries):
         try:
             cmd = [REALESRGAN, "-i", input_path, "-o", output_path, "-n", "realesrgan-x4plus", "-s", "4"]
-            subprocess.run(cmd)
+            subprocess.run(cmd, capture_output=True, text=True)
             if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
                 return True
         except:
