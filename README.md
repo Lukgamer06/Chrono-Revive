@@ -1,4 +1,4 @@
-# Media Organizer
+# Chrono-Revive 
 
 Una aplicación para organizar y mejorar archivos multimedia (fotos y videos).
 
@@ -40,4 +40,4 @@ Para contribuir o modificar:
 
 ## Licencia
 
-Este proyecto es de código abierto. Consulta el archivo LICENSE para más detalles.
+Este proyecto es de código abierto.
